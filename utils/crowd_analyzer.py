@@ -99,8 +99,7 @@ class CrowdAnalyzer:
 
             current_frame_no += 1
             if current_frame_no % 60 == 0:
-                print("Current frame:", current_frame_no/60)
+                print("Current frame:", current_frame_no/fps)
 
 
         cap.release()
-        writer.release()
