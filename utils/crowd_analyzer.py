@@ -88,14 +88,18 @@ class CrowdAnalyzer:
                         fps,
                         (W, H)
                     )
+                    print("New writer intialized!")
                 threading.Thread(target=writer.write, args=(frame,))
             else:
                 if writer is not None:
                     threading.Thread(target=writer.release)
                     writer = None
+                    print(f"Writer closed! Clip saved as clip_{clip_count}.mp4")
                     clip_count += 1
 
             current_frame_no += 1
+            if current_frame_no % 60:
+                print("Current frame:", current_frame_no/60)
 
 
         cap.release()
