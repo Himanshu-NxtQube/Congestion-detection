@@ -3,27 +3,26 @@ import numpy as np
 from ultralytics import YOLO
 
 class CrowdAnalyzer:
-    def __init__(self, model_path, conf_threshold, grid_rows, grid_cols, heatmap_alpha):
+    def __init__(self, model_path, conf_threshold, grid_rows, grid_cols, heatmap_alpha, people_threshold):
         self.model = YOLO(model_path)
         self.conf_threshold = conf_threshold
         self.grid_rows = grid_rows
         self.grid_cols = grid_cols
         self.heatmap_alpha = heatmap_alpha
+        self.people_threshold = people_threshold 
     
-    def analyze(self, video_path, output_path):
+    def analyze(self, video_path):
         cap = cv2.VideoCapture(video_path)
 
         fps = cap.get(cv2.CAP_PROP_FPS)
         W = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         H = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        writer = cv2.VideoWriter(
-            output_path,
-            cv2.VideoWriter_fourcc(*"mp4v"),
-            fps,
-            (W, H)
-        )
-
+        writer = None
+        clip_count = 0
+        less_people_detected_frame_no = 0
+        current_frame_no = 0
+        
         cell_w = W // self.grid_cols
         cell_h = H // self.grid_rows
 
@@ -34,7 +33,9 @@ class CrowdAnalyzer:
 
             results = self.model(frame, conf=self.conf_threshold, classes=[0], verbose=False)
 
-            cv2.putText(frame, f"Total people: {len(results[0].boxes)}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            people_count = len(results[0].boxes)
+
+            cv2.putText(frame, f"Total people: {people_count}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
             # ---------------- Build density grid ----------------
             density_grid = np.zeros((self.grid_rows, self.grid_cols), dtype=np.float32)
@@ -75,7 +76,26 @@ class CrowdAnalyzer:
                 0
             )
 
-            writer.write(frame)
+            if (people_count > self.people_threshold) or (current_frame_no - less_people_detected_frame_no < fps * 2):
+                # If people_count is more then the threshold or current_frame_no is not older than 2 seconds than the less_people_detected_frmae then save the frame to existing writer
+                if people_count <= self.people_threshold:
+                    less_people_detected_frame_no = current_frame_no
+                if writer is None:
+                    writer = cv2.VideoWriter(
+                        f"clip_{clip_count}.mp4",
+                        cv2.VideoWriter_fourcc(*"mp4v"),
+                        fps,
+                        (W, H)
+                    )
+                writer.write(frame)
+            else:
+                if writer is not None:
+                    writer.release()
+                    writer = None
+                    clip_count += 1
+
+            current_frame_no += 1
+
 
         cap.release()
         writer.release()

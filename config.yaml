@@ -6,3 +6,6 @@ heatmap:
   grid_rows: 8
   grid_cols: 8
   alpha: 0.30   # Low opacity (0.2–0.4 recommended)
+
+congestion:
+  people_threshold: 10

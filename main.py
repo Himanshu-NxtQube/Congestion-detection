@@ -10,6 +10,7 @@ if __name__ == "__main__":
         conf_threshold=config["model"]["conf_threshold"],
         grid_rows=config["heatmap"]["grid_rows"],
         grid_cols=config["heatmap"]["grid_cols"],
-        heatmap_alpha=config["heatmap"]["alpha"]
+        heatmap_alpha=config["heatmap"]["alpha"],
+        people_threshold=config["congestion"]["people_threshold"]
     )
-    analyzer.analyze("videos/DJI_20250811091015_0175_D.MP4", "output/output_congestion.mp4")
+    analyzer.analyze("videos/DJI_20250811091015_0175_D.MP4")
