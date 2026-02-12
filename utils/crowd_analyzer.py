@@ -1,4 +1,5 @@
 import cv2
+import threading
 import numpy as np
 from ultralytics import YOLO
 
@@ -87,10 +88,10 @@ class CrowdAnalyzer:
                         fps,
                         (W, H)
                     )
-                writer.write(frame)
+                threading.Thread(target=writer.write, args=(frame,))
             else:
                 if writer is not None:
-                    writer.release()
+                    threading.Thread(target=writer.release)
                     writer = None
                     clip_count += 1
 
