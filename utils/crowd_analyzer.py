@@ -98,7 +98,7 @@ class CrowdAnalyzer:
                     clip_count += 1
 
             current_frame_no += 1
-            if current_frame_no % 60 == 0:
+            if current_frame_no % fps == 0:
                 print("Current frame:", current_frame_no/fps)
 
 
