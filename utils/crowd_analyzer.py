@@ -34,6 +34,8 @@ class CrowdAnalyzer:
 
             results = self.model(frame, conf=self.conf_threshold, classes=[0], verbose=False)
 
+            cv2.putText(frame, f"Total people: {len(results[0].boxes)}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
             # ---------------- Build density grid ----------------
             density_grid = np.zeros((self.grid_rows, self.grid_cols), dtype=np.float32)
 
