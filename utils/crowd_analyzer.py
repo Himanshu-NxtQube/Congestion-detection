@@ -1,3 +1,4 @@
+import os
 import cv2
 import threading
 import numpy as np
@@ -10,9 +11,9 @@ class CrowdAnalyzer:
         self.grid_rows = grid_rows
         self.grid_cols = grid_cols
         self.heatmap_alpha = heatmap_alpha
-        self.people_threshold = people_threshold 
+        self.people_threshold = people_threshold
     
-    def analyze(self, video_path):
+    def analyze(self, video_path, upload=False):
         cap = cv2.VideoCapture(video_path)
 
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -21,8 +22,9 @@ class CrowdAnalyzer:
 
         writer = None
         clip_count = 0
-        less_people_detected_frame_no = 0
+        last_frame_with_people = -9999
         current_frame_no = 0
+        output_path = f"output/clip_{clip_count}.mp4"
         
         cell_w = W // self.grid_cols
         cell_h = H // self.grid_rows
@@ -77,22 +79,23 @@ class CrowdAnalyzer:
                 0
             )
 
-            if (people_count > self.people_threshold) or (current_frame_no - less_people_detected_frame_no < fps * 2):
-                # If people_count is more then the threshold or current_frame_no is not older than 2 seconds than the less_people_detected_frmae then save the frame to existing writer
-                if people_count <= self.people_threshold:
-                    less_people_detected_frame_no = current_frame_no
+            if people_count > self.people_threshold:
+                last_frame_with_people = current_frame_no
+
+            if (current_frame_no - last_frame_with_people < fps * 2):
+                # If currently detecting people or within 2 seconds of the last detection
                 if writer is None:
                     writer = cv2.VideoWriter(
-                        f"clip_{clip_count}.mp4",
+                        output_path,
                         cv2.VideoWriter_fourcc(*"mp4v"),
                         fps,
                         (W, H)
                     )
                     print("New writer intialized!")
-                threading.Thread(target=writer.write, args=(frame,))
+                threading.Thread(target=writer.write, args=(frame,)).start()
             else:
                 if writer is not None:
-                    threading.Thread(target=writer.release)
+                    threading.Thread(target=writer.release).start()
                     writer = None
                     print(f"Writer closed! Clip saved as clip_{clip_count}.mp4")
                     clip_count += 1
