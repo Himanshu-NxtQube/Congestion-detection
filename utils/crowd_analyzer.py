@@ -24,7 +24,6 @@ class CrowdAnalyzer:
         clip_count = 0
         last_frame_with_people = -9999
         current_frame_no = 0
-        output_path = f"output/clip_{clip_count}.mp4"
         
         cell_w = W // self.grid_cols
         cell_h = H // self.grid_rows
@@ -34,19 +33,37 @@ class CrowdAnalyzer:
             if not ret:
                 break
 
-            results = self.model(frame, conf=self.conf_threshold, classes=[0], verbose=False)
+            # ---------------- Define ROI (Middle 50%) ----------------
+            x1 = W // 4
+            y1 = H // 4
+            x2 = x1 + (W // 2)
+            y2 = y1 + (H // 2)
+
+            roi_frame = frame[y1:y2, x1:x2]
+
+            # ---------------- Run Detection on ROI ----------------
+            results = self.model(roi_frame, conf=self.conf_threshold, classes=[0], verbose=False)
 
             people_count = len(results[0].boxes)
 
-            cv2.putText(frame, f"Total people: {people_count}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.putText(frame, f"Total people (ROI): {people_count}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            
+            # Visualize ROI rectangle
+            # cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
 
-            # ---------------- Build density grid ----------------
+            # ---------------- Build density grid for ROI ----------------
             density_grid = np.zeros((self.grid_rows, self.grid_cols), dtype=np.float32)
 
+            roi_w = x2 - x1
+            roi_h = y2 - y1
+            
+            cell_w = roi_w // self.grid_cols
+            cell_h = roi_h // self.grid_rows
+
             for box in results[0].boxes.xyxy.cpu().numpy():
-                x1, y1, x2, y2 = map(int, box)
-                cx = (x1 + x2) // 2
-                cy = (y1 + y2) // 2
+                bx1, by1, bx2, by2 = map(int, box)
+                cx = (bx1 + bx2) // 2
+                cy = (by1 + by2) // 2
 
                 col = min(cx // cell_w, self.grid_cols - 1)
                 row = min(cy // cell_h, self.grid_rows - 1)
@@ -57,10 +74,10 @@ class CrowdAnalyzer:
             if density_grid.max() > 0:
                 density_grid /= density_grid.max()
 
-            # ---------------- Upscale to frame size ----------------
+            # ---------------- Upscale to ROI size ----------------
             heatmap = cv2.resize(
                 density_grid,
-                (W, H),
+                (roi_w, roi_h),
                 interpolation=cv2.INTER_CUBIC
             )
             heatmap = np.where(heatmap > 0.3, heatmap, 0)
@@ -70,19 +87,23 @@ class CrowdAnalyzer:
             # ---------------- Apply color map ----------------
             heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
-            # ---------------- Overlay heatmap (low opacity) ----------------
-            frame = cv2.addWeighted(
+            # ---------------- Overlay heatmap on ROI ----------------
+            roi_overlay = cv2.addWeighted(
                 heatmap_color,
                 self.heatmap_alpha,
-                frame,
+                roi_frame,
                 1 - self.heatmap_alpha,
                 0
             )
+            
+            # Place the overlay back into the main frame
+            frame[y1:y2, x1:x2] = roi_overlay
 
             if people_count > self.people_threshold:
                 last_frame_with_people = current_frame_no
 
             if (current_frame_no - last_frame_with_people < fps * 2):
+                output_path = f"output/clip_{clip_count}.mp4"
                 # If currently detecting people or within 2 seconds of the last detection
                 if writer is None:
                     writer = cv2.VideoWriter(
